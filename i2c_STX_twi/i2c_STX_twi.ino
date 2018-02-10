@@ -17,6 +17,7 @@
     static void onRequestService();
 
 void setup(){
+  Serial.begin(9600);
   twi_setAddress(0x22);
   twi_attachSlaveTxEvent(ReqHandler);
   txBufferIndex = txBufferLength = 0;
@@ -28,7 +29,7 @@ void loop(){
   delay(100);
 }
 void requestEvent() {
-  byte buf[6] = {1,1,3,5,4,7};
+  byte buf[6] = {2,3,9,6,1,3};
   twi_transmit(buf, 6); // respond with message of 6 bytes as expected by master
 }
 

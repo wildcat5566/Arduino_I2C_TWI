@@ -1,14 +1,10 @@
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifndef twi_h
 #define twi_h
 
   #include <inttypes.h>
 
   #ifndef TWI_FREQ
-  #define TWI_FREQ 100000L
+  #define TWI_FREQ 100000L //100kHz
   #endif
 
   #ifndef TWI_BUFFER_LENGTH
@@ -31,6 +27,3 @@ extern "C" {
   void twi_releaseBus(void);
 
 #endif
-#ifdef __cplusplus
-}
-#endif*/
