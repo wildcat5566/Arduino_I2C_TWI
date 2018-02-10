@@ -5,7 +5,7 @@ Arduino I2C implementation (Master receiver &amp; Slave transmitter), direct acc
 MASTER side, serving as data receive.r <br />
 ### i2c_MRX.ino
 Tested on Arduino Due, with IDE v1.6.7
-Modified based on official code examples (combining master reader and I2C_Scanner). <br />
+Modified based on official code example (master reader). <br />
 Didn't bother, only modified function arguments of Wire.requestFrom(). <br />
  <br />
 Refs: <br />
@@ -35,6 +35,6 @@ void requestEvent() { <br />
   byte buf[6] = {1,1,3,5,4,7}; <br />
   twi_transmit(buf, 6); <br />
 } <br />
-### twi_STX.c and twi_STX.h
+### twi_STX.cpp and twi_STX.h
 Simplified & modified version of the twi library (source and header files.) <br />
 Only essential parts of slave-transmitter mode are left. <br />
