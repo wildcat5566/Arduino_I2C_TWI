@@ -2,12 +2,6 @@
 // Wire library break down: direct access to twi library.
 
 #include "twi_STX.h"
-#include <stdlib.h>
-#include <string.h>
-#include <inttypes.h>
-#include "Stream.h"
-#define WIRE_HAS_END 1
-
     static uint8_t txAddress;
     static uint8_t txBuffer[32];
     static uint8_t txBufferIndex;
@@ -17,8 +11,7 @@
     static void onRequestService();
 
 void setup(){
-  Serial.begin(9600);
-  twi_setAddress(0x22);
+  twi_setAddress(0x3F);
   twi_attachSlaveTxEvent(ReqHandler);
   txBufferIndex = txBufferLength = 0;
   twi_init();
@@ -29,7 +22,7 @@ void loop(){
   delay(100);
 }
 void requestEvent() {
-  byte buf[6] = {2,3,9,6,1,3};
+  byte buf[6] = {7,5,7,4,3,4};
   twi_transmit(buf, 6); // respond with message of 6 bytes as expected by master
 }
 
