@@ -1,5 +1,5 @@
 // I2C slave transmitter
-// Wire library break down: direct access to twi library.
+// Wire library break down: direct access to twi library and registers.
 
 #include "twi_STX.h"
     static uint8_t txAddress;
@@ -11,7 +11,7 @@
     static void onRequestService();
 
 void setup(){
-  twi_setAddress(0x3F);
+  twi_setAddress(0x1A);
   twi_attachSlaveTxEvent(ReqHandler);
   txBufferIndex = txBufferLength = 0;
   twi_init();
@@ -22,7 +22,7 @@ void loop(){
   delay(100);
 }
 void requestEvent() {
-  byte buf[6] = {7,5,7,4,3,4};
+  byte buf[6] = {7,5,9,4,3,1};
   twi_transmit(buf, 6); // respond with message of 6 bytes as expected by master
 }
 

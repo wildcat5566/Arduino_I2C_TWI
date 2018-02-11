@@ -9,10 +9,7 @@ extern "C" {
   void twi_init(void);
   uint8_t twi_transmit(const uint8_t*, uint8_t);
   void twi_reply(uint8_t);
-  /*void twi_disable(void);
-  void twi_stop(void);
-  void twi_releaseBus(void);*/
-  
+
 #ifdef __cplusplus
 }
 #endif
