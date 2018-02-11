@@ -21,22 +21,18 @@ void setup() {
 }
 
 void loop() {
-  requestFrom(0x1A, 6);
-  while (available()) { 
+  requestFrom(0x22, 6, 0, 0, 1);
+  while (rxBufferLength > rxBufferIndex) { // available
     Serial.print(read());
   }
-  delay(500);
+  delay(10);
   Serial.println();
-}
-
-void end(void) {
-  twi_disable();
 }
 
 uint8_t requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddress, uint8_t isize, uint8_t sendStop) {
   if (isize > 0) {
   beginTransmission(address);
-  endTransmission(false);
+  //endTransmission(false);
   }
   uint8_t read = twi_readFrom(address, rxBuffer, quantity, sendStop); // perform blocking read into buffer
   rxBufferIndex = 0;
@@ -44,35 +40,14 @@ uint8_t requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddress, uint8_
   return read;
 }
 
-uint8_t requestFrom(uint8_t address, uint8_t quantity, uint8_t sendStop) {
-  return requestFrom((uint8_t)address, (uint8_t)quantity, (uint32_t)0, (uint8_t)0, (uint8_t)sendStop);
-}
-
-uint8_t requestFrom(uint8_t address, uint8_t quantity) {
-  return requestFrom((uint8_t)address, (uint8_t)quantity, (uint8_t)true);
-}
-
 void beginTransmission(uint8_t address) {
-  transmitting = 1;// indicate that we are transmitting
-  txAddress = address;// set address of targeted slave
+  transmitting = 1;
+  txAddress = address;                                               // set address of targeted slave
   txBufferIndex = txBufferLength = 0;
-}
-
-uint8_t endTransmission(uint8_t sendStop) {
-  int8_t ret = twi_writeTo(txAddress, txBuffer, txBufferLength, 1, sendStop);
-  txBufferIndex = 0;
-  txBufferLength = 0;
-  transmitting = 0;
-  return ret;
-}
-
-int available(void) {
-  return rxBufferLength - rxBufferIndex;
 }
 
 int read(void) {
   int value = -1;
-  
   if(rxBufferIndex < rxBufferLength){
     value = rxBuffer[rxBufferIndex];  // get each successive byte on each call
     ++rxBufferIndex;

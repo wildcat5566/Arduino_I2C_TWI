@@ -11,7 +11,7 @@
     static void onRequestService();
 
 void setup(){
-  twi_setAddress(0x1A);
+  twi_setAddress(0x22);
   twi_attachSlaveTxEvent(ReqHandler);
   txBufferIndex = txBufferLength = 0;
   twi_init();
@@ -19,10 +19,16 @@ void setup(){
   user_onRequest = requestEvent;
 }
 void loop(){
-  delay(100);
+  delay(10);
 }
 void requestEvent() {
-  byte buf[6] = {7,5,9,4,3,1};
+  byte buf[6];
+  buf [0] = random(0, 9);
+  buf [1] = random(0, 9);
+  buf [2] = random(0, 9);
+  buf [3] = random(0, 9);
+  buf [4] = random(0, 9);
+  buf [5] = random(0, 9);
   twi_transmit(buf, 6); // respond with message of 6 bytes as expected by master
 }
 
