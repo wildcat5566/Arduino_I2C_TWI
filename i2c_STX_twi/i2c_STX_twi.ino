@@ -1,36 +1,52 @@
-// I2C slave transmitter
-// Wire library break down: direct access to twi library and registers.
+// I2C slave transmitter on arduino UNO (atmega328)
+// Wire library break down: direct access to registers.
+#include <stdint.h>
 
-#include "twi_STX.h"
-    static uint8_t txAddress;
-    static uint8_t txBuffer[32];
-    static uint8_t txBufferIndex;
-    static uint8_t txBufferLength;
+static uint8_t txBuffer[32];
+static volatile uint8_t txBufferIndex;
+static volatile uint8_t txBufferLength;
+static uint8_t txAddress;
 
-    static void (*user_onRequest)(void);
-    static void onRequestService();
+static volatile uint8_t state;
+static void (*onSlaveTransmit)(void);
+static void (*user_onRequest)(void);
+static void onRequestService();
+static volatile uint8_t err;
 
 void setup(){
-  twi_setAddress(0x22);
-  twi_attachSlaveTxEvent(ReqHandler);
-  txBufferIndex = txBufferLength = 0;
-  twi_init();
+  txAddress = 0x29;
+  TWAR = txAddress << 1;                         // Set address as slave: left shift 1
   
-  user_onRequest = requestEvent;
-}
+  onSlaveTransmit = kuroneko;                    // Set callback function
+  txBufferIndex = txBufferLength = 0;
+  
+  state = 0;                                     // TWI_READY: initialize state
+  PORTC = 48;                                    // (1) activate internal pullups for twi.
+                                                 //     byte num = B00110000, i.e. digitalWrite(SDA, 1); (SCL, 1);
+  _SFR_BYTE(TWSR) &= ~_BV(TWPS0);                // (2) initialize twi prescaler and bit rate
+  _SFR_BYTE(TWSR) &= ~_BV(TWPS1);
+  TWBR = ((F_CPU / 100000) - 16) / 2;            // (3) set SCL clock speed = 100 kHz
+  TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA);      // (4) enable twi module, acks, and twi interrupt
+  
+  user_onRequest = kuroneko;
+} // </setup>
+
 void loop(){
   delay(10);
-}
-void requestEvent() {
-  byte buf[6];
-  buf [0] = random(0, 9);
-  buf [1] = random(0, 9);
-  buf [2] = random(0, 9);
-  buf [3] = random(0, 9);
-  buf [4] = random(0, 9);
-  buf [5] = random(0, 9);
-  twi_transmit(buf, 6); // respond with message of 6 bytes as expected by master
-}
+} // </loop>
+
+void kuroneko() {
+  byte buf[6] = {1,2,8,1,3,6};
+  transmit(buf, 6); // respond with message of 6 bytes as expected by master/
+} // </kuroneko>
+
+uint8_t transmit(const uint8_t* data, uint8_t length){
+  txBufferLength = length;                   // set length
+  for(uint8_t i = 0; i < txBufferLength; ++i){
+    txBuffer[i] = data[i];                   // populate data into tx buffer
+  }
+  return 0;
+} // </transmit>
 
 void ReqHandler(){
   if(!user_onRequest){
@@ -39,5 +55,32 @@ void ReqHandler(){
   txBufferIndex = 0;
   txBufferLength = 0;
   user_onRequest();// alert user program
-}
+} // </ReqHandler>
 
+#define TW_STATUS_MASK    (_BV(TWS7)|_BV(TWS6)|_BV(TWS5)|_BV(TWS4)|_BV(TWS3))
+ISR(TWI_vect){
+  switch((TWSR & TW_STATUS_MASK)){ //TW_STATUS
+    case 0xA8:                            // (1) TW_ST_SLA_ACK(168): addressed, returned ack
+    case 0xB0:                            // (2) TW_ST_ARB_LOST_SLA_ACK(176): arbitration lost, returned ack
+      state = 4;                          //     TWI_STX: enter slave transmitter mode
+      txBufferIndex = txBufferLength = 0;
+      onSlaveTransmit();                  //     call twi_transmit to populate tx_buffer
+      if(0 == txBufferLength){
+        txBufferLength = 1;
+        txBuffer[0] = 0x00;
+      }                                   //     transmit first byte from buffer, fall
+    case 0xB8:                            // (3) TW_ST_DATA_ACK(184): byte transmitted, ack returned
+      TWDR = txBuffer[txBufferIndex++];   //     copy data to output register
+      if(txBufferIndex < txBufferLength){ //     ack if in progress
+        TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT) | _BV(TWEA);                            
+      }else{                              //     else nack
+        TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT);                             
+      }
+      break;
+    case 0xC0:                            // (4) TW_ST_DATA_NACK(192): last byte transmitted, NACK received 
+    case 0xC8:                            // (5) TW_ST_LAST_DATA(200): last byte transmitted, received ACK
+      TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT) | _BV(TWEA);
+      state = 0;                          //     TWI_READY: ready state
+      break;
+  }
+} // </ISR>
