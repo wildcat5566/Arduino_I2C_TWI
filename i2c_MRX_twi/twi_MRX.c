@@ -1,6 +1,5 @@
-#include <avr/interrupt.h>
-#include <util/twi.h>
 #include "twi_MRX.h"
+#include <avr/interrupt.h>
 
 static volatile uint8_t twi_state;
 static volatile uint8_t twi_slarw;
@@ -44,7 +43,7 @@ uint8_t twi_readFrom(uint8_t address, uint8_t* data, uint8_t length, uint8_t sen
   twi_masterBufferLength = length-1;
   
   
-  twi_slarw = TW_READ;                           // build sla+w, slave device address + w bit
+  twi_slarw = 1;                                 // build sla+w, slave device address + w bit
   twi_slarw |= address << 1;
 
   if (1 == twi_inRepStart) {
