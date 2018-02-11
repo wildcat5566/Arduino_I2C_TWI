@@ -1,6 +1,5 @@
 // I2C master receiver on arduino UNO (atmega328)
 // Wire library break down: direct access to twi library and registers.
-#include <stdint.h>
 
 uint8_t rxBuffer[32];
 uint8_t rxBufferIndex = 0;

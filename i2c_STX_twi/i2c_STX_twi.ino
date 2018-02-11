@@ -1,23 +1,20 @@
 // I2C slave transmitter on arduino UNO (atmega328)
 // Wire library break down: direct access to registers.
-#include <stdint.h>
 
 static uint8_t txBuffer[32];
 static volatile uint8_t txBufferIndex;
 static volatile uint8_t txBufferLength;
 static uint8_t txAddress;
 
-static volatile uint8_t state;
-static void (*onSlaveTransmit)(void);
 static void (*user_onRequest)(void);
-static void onRequestService();
+static volatile uint8_t state;
 static volatile uint8_t err;
 
 void setup(){
   txAddress = 0x29;
   TWAR = txAddress << 1;                         // Set address as slave: left shift 1
   
-  onSlaveTransmit = kuroneko;                    // Set callback function
+  user_onRequest = kuroneko;                    // Set callback function
   txBufferIndex = txBufferLength = 0;
   
   state = 0;                                     // TWI_READY: initialize state
@@ -27,8 +24,6 @@ void setup(){
   _SFR_BYTE(TWSR) &= ~_BV(TWPS1);
   TWBR = ((F_CPU / 100000) - 16) / 2;            // (3) set SCL clock speed = 100 kHz
   TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA);      // (4) enable twi module, acks, and twi interrupt
-  
-  user_onRequest = kuroneko;
 } // </setup>
 
 void loop(){
@@ -64,7 +59,7 @@ ISR(TWI_vect){
     case 0xB0:                            // (2) TW_ST_ARB_LOST_SLA_ACK(176): arbitration lost, returned ack
       state = 4;                          //     TWI_STX: enter slave transmitter mode
       txBufferIndex = txBufferLength = 0;
-      onSlaveTransmit();                  //     call twi_transmit to populate tx_buffer
+      user_onRequest();                   //     call twi_transmit to populate tx_buffer               
       if(0 == txBufferLength){
         txBufferLength = 1;
         txBuffer[0] = 0x00;
