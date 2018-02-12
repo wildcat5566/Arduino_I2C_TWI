@@ -41,11 +41,6 @@ uint8_t transmit(const uint8_t* data, uint8_t length){
   return 0;
 } // </transmit>
 
-void ReqHandler(){
-  txBufferIndex = txBufferLength = 0;
-  kuroneko();// alert user program
-} // </ReqHandler>
-
 #define TW_STATUS_MASK    (_BV(TWS7)|_BV(TWS6)|_BV(TWS5)|_BV(TWS4)|_BV(TWS3))
 ISR(TWI_vect){
   switch((TWSR & TW_STATUS_MASK)){ //TW_STATUS
