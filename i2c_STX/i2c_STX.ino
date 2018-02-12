@@ -1,6 +1,5 @@
 // I2C slave transmitter on arduino UNO (atmega328)
 // Wire library break down: direct access to registers.
-
 static uint8_t txBuffer[32];
 static volatile uint8_t txBufferIndex;
 static volatile uint8_t txBufferLength;
@@ -10,8 +9,7 @@ static volatile uint8_t state;
 static volatile uint8_t err;
 
 void setup(){
-  Serial.begin(9600);
-  txAddress = 0x29;
+  txAddress = 0x62;
   TWAR = txAddress << 1;                     // Set address as slave: left shift 1
   txBufferIndex = txBufferLength = 0;
   
@@ -29,7 +27,7 @@ void loop(){
 } // </loop>
 
 void kuroneko() {
-  byte buf[6] = {1,2,8,1,3,6};
+  byte buf[6] = {1,5,9,2,3,6};
   transmit(buf, 6); // respond with message of 6 bytes as expected by master/
 } // </kuroneko>
 
@@ -44,6 +42,10 @@ uint8_t transmit(const uint8_t* data, uint8_t length){
 #define TW_STATUS_MASK    (_BV(TWS7)|_BV(TWS6)|_BV(TWS5)|_BV(TWS4)|_BV(TWS3))
 ISR(TWI_vect){
   switch((TWSR & TW_STATUS_MASK)){ //TW_STATUS
+    case 0x60:  // TW_SR_SLA_ACK: addressed, returned ack. Check <util/twi.h> for defs.
+    case 0xA0: // TW_SR_STOP: stop or repeated start condition received
+    case 0x80: // TW_SR_DATA_ACK: data received, returned ack
+      
     case 0xA8:                            // (1) TW_ST_SLA_ACK(168): addressed, returned ack
     case 0xB0:                            // (2) TW_ST_ARB_LOST_SLA_ACK(176): arbitration lost, returned ack
       state = 4;                          //     TWI_STX: enter slave transmitter mode

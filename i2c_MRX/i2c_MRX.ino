@@ -31,7 +31,8 @@ void setup() {
 } // </setup>
 
 void loop() {
-  requestFrom(0x29, 6, 0, 0, 1);
+  requestFrom(0x29, 6, 1);
+  
   while (rxBufferLength > rxBufferIndex) { // available
     Serial.print(rxBuffer[rxBufferIndex]);
     ++rxBufferIndex;
@@ -40,8 +41,7 @@ void loop() {
   Serial.println();
 } // </loop>
 
-uint8_t requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddress, uint8_t isize, uint8_t sendStop) {
-
+uint8_t requestFrom(uint8_t address, uint8_t quantity, uint8_t sendStop) {
   uint8_t message = readFrom(address, rxBuffer, quantity, sendStop); // perform blocking read into buffer
   rxBufferIndex = 0;
   rxBufferLength = message;
@@ -98,28 +98,19 @@ ISR(TWI_vect) {
       masterBuffer[masterBufferIndex++] = TWDR;                 //     populate buffer
     case 0x40:                                                  // (4) TW_MR_SLA_ACK(64): address sent, ack received
       if(masterBufferIndex < masterBufferLength){
-           // Serial.print("40-1: ");Serial.print("TWSR = ");Serial.print(TWSR);
-    //Serial.print(", Mask: ");Serial.println(TW_STATUS_MASK);
         TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT) | _BV(TWEA);  // ack if in progress
       }else{
-            //Serial.print("40-2: ");Serial.print("TWSR = ");Serial.print(TWSR);
-    //Serial.print(", Mask: ");Serial.println(TW_STATUS_MASK);
         TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT);              // else nack
       }
       break;
       
     case 0x58:                                                  // (5) TW_MR_DATA_NACK(88): data received, nack sent
-          
       masterBuffer[masterBufferIndex++] = TWDR;                 //     put final byte into buffer
       if (sendStop){
-        //Serial.print("58-1: ");Serial.print("TWSR = ");Serial.print(TWSR);
-    //Serial.print(", Mask: ");Serial.println(TW_STATUS_MASK);
         TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT) | _BV(TWSTO); // stop and stare
         while(TWCR & _BV(TWSTO)){continue;}
         state = 0;
       }else{
-        //Serial.print("58-2: ");Serial.print("TWSR = ");Serial.print(TWSR);
-    //Serial.print(", Mask: ");Serial.println(TW_STATUS_MASK);
           inRepStart = 1; 
           TWCR = _BV(TWINT) | _BV(TWSTA)| _BV(TWEN) ;           // send start but don't enable interrupt
           state = 0;
@@ -127,18 +118,6 @@ ISR(TWI_vect) {
       break;
       
     case 0x48:                                                  // (6) TW_MR_SLA_NACK: address sent, nack received. 
-        // Serial.print("48: ");Serial.print("TWSR = ");Serial.print(TWSR);
-    //Serial.print(", Mask: ");Serial.println(TW_STATUS_MASK);
-      TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT) | _BV(TWSTO); // stop and stare
-      while(TWCR & _BV(TWSTO)){continue;}
-      state = 0;
-      break;
-      
-    // General
-    case 0xF8:                                                  // (X1) TW_NO_INFO: no state information
-      break;
-    case 0x00:                                                  // (X2) TW_BUS_ERROR: bus error, illegal stop/start
-      err = 0x00;
       TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT) | _BV(TWSTO); // stop and stare
       while(TWCR & _BV(TWSTO)){continue;}
       state = 0;
