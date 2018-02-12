@@ -41,8 +41,7 @@ void loop() {
 } // </loop>
 
 uint8_t requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddress, uint8_t isize, uint8_t sendStop) {
-  if (isize > 0) {
-  }
+
   uint8_t message = readFrom(address, rxBuffer, quantity, sendStop); // perform blocking read into buffer
   rxBufferIndex = 0;
   rxBufferLength = message;
@@ -50,36 +49,37 @@ uint8_t requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddress, uint8_
 } // </requestFrom>
 
 uint8_t readFrom(uint8_t address, uint8_t* data, uint8_t length, uint8_t sendStop) {
-  uint8_t i;
+  // (1) Check & wait until twi is ready
   while(0 != state){
-    continue;                                    // wait until twi is ready, become master receiver
+    continue;                                    
   }
-  state = 1;
-  sendStop = sendStop;  
-  err = 0xFF;                              // reset error state (0xFF.. no error occured)
+  state = 1;                                 // wait until twi is ready, become master receiver
+  err = 0xFF;                                // reset error state (0xFF.. no error occured)
   masterBufferIndex = 0;
   masterBufferLength = length - 1;
   slarw = 1;                                 // build sla+w, slave device address + w bit
   slarw |= address << 1;
 
-  if (1 == inRepStart) {
-    inRepStart = 0;                           // remember, we're dealing with an ASYNC ISR
+  // (2) Check repeated start or not. If not, send start condition.
+  if (1 == inRepStart) {                     // Repeated start occurs
+    inRepStart = 0;                          // remember, we're dealing with an ASYNC ISR
     do {
       TWDR = slarw;
     } while(TWCR & _BV(TWWC));
     TWCR = _BV(TWINT) | _BV(TWEA) | _BV(TWEN) | _BV(TWIE);  // enable INTs, but not START
   }
-  else
-    // send start condition
+  else                                       // Repeated start == 0, send start condition
     TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT) | _BV(TWSTA);
     
-  while(1 == state){
-    continue;                                    // wait for read operation to complete
+  while(1 == state){                         // wait for read operation to complete
+    continue;                                    
   }
+
+  // (3) Populate buffer with data from slave.
   if (masterBufferIndex < length)
     length = masterBufferIndex;
  
-  for(i = 0; i < length; ++i){
+  for(uint8_t i = 0; i < length; ++i){
     data[i] = masterBuffer[i];               // copy twi buffer to data
   }
   return length;
@@ -88,31 +88,38 @@ uint8_t readFrom(uint8_t address, uint8_t* data, uint8_t length, uint8_t sendSto
 #define TW_STATUS_MASK    (_BV(TWS7)|_BV(TWS6)|_BV(TWS5)|_BV(TWS4)|_BV(TWS3))
 ISR(TWI_vect) {
   switch(TWSR & TW_STATUS_MASK) {
-    case 0x08:                                                  // (1) TW_START: sent start condition 
-    
-    case 0x10:                                                  // (2) TW_REP_START: sent repeated start condition
+    case 0x08:                                                  // (1) TW_START(8): sent start condition 
+    case 0x10:                                                  // (2) TW_REP_START(16): sent repeated start condition
       TWDR = slarw;                                             //     copy address and populate register
       TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT) | _BV(TWEA);    //     ack
       break;
     
-    case 0x50:                                                  // (3) TW_MR_DATA_ACK: data received, ack sent
+    case 0x50:                                                  // (3) TW_MR_DATA_ACK(80): data received, ack sent
       masterBuffer[masterBufferIndex++] = TWDR;                 //     populate buffer
-    
-    case 0x40:                                                  // (4) TW_MR_SLA_ACK: address sent, ack received
+    case 0x40:                                                  // (4) TW_MR_SLA_ACK(64): address sent, ack received
       if(masterBufferIndex < masterBufferLength){
+           // Serial.print("40-1: ");Serial.print("TWSR = ");Serial.print(TWSR);
+    //Serial.print(", Mask: ");Serial.println(TW_STATUS_MASK);
         TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT) | _BV(TWEA);  // ack if in progress
       }else{
+            //Serial.print("40-2: ");Serial.print("TWSR = ");Serial.print(TWSR);
+    //Serial.print(", Mask: ");Serial.println(TW_STATUS_MASK);
         TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWINT);              // else nack
       }
       break;
       
-    case 0x58:                                                  // (5) TW_MR_DATA_NACK: data received, nack sent
+    case 0x58:                                                  // (5) TW_MR_DATA_NACK(88): data received, nack sent
+          
       masterBuffer[masterBufferIndex++] = TWDR;                 //     put final byte into buffer
       if (sendStop){
+        //Serial.print("58-1: ");Serial.print("TWSR = ");Serial.print(TWSR);
+    //Serial.print(", Mask: ");Serial.println(TW_STATUS_MASK);
         TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT) | _BV(TWSTO); // stop and stare
         while(TWCR & _BV(TWSTO)){continue;}
         state = 0;
       }else{
+        //Serial.print("58-2: ");Serial.print("TWSR = ");Serial.print(TWSR);
+    //Serial.print(", Mask: ");Serial.println(TW_STATUS_MASK);
           inRepStart = 1; 
           TWCR = _BV(TWINT) | _BV(TWSTA)| _BV(TWEN) ;           // send start but don't enable interrupt
           state = 0;
@@ -120,6 +127,8 @@ ISR(TWI_vect) {
       break;
       
     case 0x48:                                                  // (6) TW_MR_SLA_NACK: address sent, nack received. 
+        // Serial.print("48: ");Serial.print("TWSR = ");Serial.print(TWSR);
+    //Serial.print(", Mask: ");Serial.println(TW_STATUS_MASK);
       TWCR = _BV(TWEN) | _BV(TWIE) | _BV(TWEA) | _BV(TWINT) | _BV(TWSTO); // stop and stare
       while(TWCR & _BV(TWSTO)){continue;}
       state = 0;
